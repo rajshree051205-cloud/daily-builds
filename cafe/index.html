@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ember &amp; Oak — Specialty Coffee House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,450;0,9..144,600;0,9..144,700;1,9..144,450&family=Jost:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+
+/* ============================= */
+/* TOKENS                         */
+/* ============================= */
+:root{
+  --espresso:      #150B08;
+  --dark-roast:    #241209;
+  --roast-brown:   #3E2417;
+  --coffee:        #6B4226;
+  --caramel:       #A9713F;
+  --latte:         #D9A566;
+  --cream:         #F1E2C8;
+  --foam:          #F8EFDD;
+  --gold:          #C98F4E;
+  --gold-soft:     rgba(201,143,78,0.35);
+  --line:          rgba(241,226,200,0.14);
+
+  --font-display: 'Fraunces', serif;
+  --font-body:    'Jost', sans-serif;
+  --font-mono:    'Space Mono', monospace;
+
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--espresso);
+  color:var(--cream);
+  font-family:var(--font-body);
+  overflow-x:hidden;
+  cursor:none;
+}
+::selection{background:var(--gold); color:var(--espresso);}
+a{color:inherit; text-decoration:none;}
+img{max-width:100%; display:block;}
+
+/* faint grain overlay for premium texture */
+body::before{
+  content:'';
+  position:fixed; inset:0; z-index:999; pointer-events:none;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================= */
+/* CUSTOM CURSOR                  */
+/* ============================= */
+.cursor{
+  position:fixed; top:0; left:0; width:8px; height:8px; border-radius:50%;
+  background:var(--gold); pointer-events:none; z-index:9999;
+  transform:translate(-50%,-50%); transition:width .25s var(--ease),height .25s var(--ease), background .25s;
+  mix-blend-mode:difference;
+}
+.cursor-ring{
+  position:fixed; top:0; left:0; width:34px; height:34px; border-radius:50%;
+  border:1px solid var(--gold-soft); pointer-events:none; z-index:9998;
+  transform:translate(-50%,-50%); transition:width .3s var(--ease),height .3s var(--ease), transform .12s linear, border-color .3s;
+}
+.cursor-ring.grow{width:64px;height:64px; border-color:var(--gold);}
+@media(hover:none){ .cursor,.cursor-ring{display:none;} body{cursor:auto;} }
+
+/* ============================= */
+/* PRELOADER                      */
+/* ============================= */
+#preloader{
+  position:fixed; inset:0; background:var(--espresso); z-index:10000;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px;
+  transition:opacity .9s var(--ease), visibility .9s;
+}
+#preloader.done{opacity:0; visibility:hidden;}
+.pre-cup{width:46px;height:38px; border:2px solid var(--gold); border-top:none; border-radius:0 0 16px 16px; position:relative;}
+.pre-cup::before{content:'';position:absolute; right:-14px; top:2px; width:12px; height:16px; border:2px solid var(--gold); border-left:none; border-radius:0 8px 8px 0;}
+.pre-cup::after{
+  content:''; position:absolute; left:3px; right:3px; top:-8px; height:6px; border-radius:50%;
+  background:var(--gold); animation:pourFill 1.6s ease-in-out infinite;
+}
+@keyframes pourFill{0%,100%{opacity:.2; transform:translateY(0);}50%{opacity:1; transform:translateY(2px);}}
+.pre-label{font-family:var(--font-mono); font-size:11px; letter-spacing:.35em; color:var(--latte); text-transform:uppercase;}
+
+/* ============================= */
+/* LAYOUT HELPERS                 */
+/* ============================= */
+.wrap{max-width:1280px; margin:0 auto; padding:0 48px;}
+section{position:relative; z-index:1;}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:.3em; text-transform:uppercase;
+  color:var(--gold); display:inline-flex; align-items:center; gap:10px; margin-bottom:22px;
+}
+.eyebrow::before{content:''; width:26px; height:1px; background:var(--gold);}
+.reveal{opacity:0; transform:translateY(36px); transition:opacity 1s var(--ease), transform 1s var(--ease);}
+.reveal.in{opacity:1; transform:translateY(0);}
+
+/* ============================= */
+/* NAV                            */
+/* ============================= */
+header{
+  position:fixed; top:0; left:0; right:0; z-index:500;
+  padding:26px 48px; display:flex; align-items:center; justify-content:space-between;
+  transition:padding .4s var(--ease), background .4s var(--ease), backdrop-filter .4s;
+}
+header.scrolled{ padding:16px 48px; background:rgba(21,11,8,.82); backdrop-filter:blur(14px); border-bottom:1px solid var(--line);}
+.logo{
+  font-family:var(--font-display); font-size:22px; font-weight:600; letter-spacing:.02em;
+  display:flex; align-items:center; gap:10px;
+}
+.logo-mark{
+  width:30px; height:30px; border-radius:50%;
+  border:1.5px solid var(--gold);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:12px; color:var(--gold);
+}
+nav ul{list-style:none; display:flex; gap:42px;}
+nav a{
+  font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:500;
+  color:var(--cream); position:relative; padding-bottom:4px;
+}
+nav a::after{content:'';position:absolute;left:0;bottom:0;width:0;height:1px;background:var(--gold); transition:width .35s var(--ease);}
+nav a:hover::after{width:100%;}
+.nav-cta{
+  border:1px solid var(--gold); padding:11px 26px; border-radius:100px;
+  font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold);
+  transition:all .4s var(--ease); position:relative; overflow:hidden;
+}
+.nav-cta::before{content:'';position:absolute; inset:0; background:var(--gold); transform:translateX(-101%); transition:transform .4s var(--ease); z-index:-1;}
+.nav-cta:hover{color:var(--espresso);}
+.nav-cta:hover::before{transform:translateX(0);}
+.burger{display:none;}
+
+/* ============================= */
+/* HERO                           */
+/* ============================= */
+.hero{
+  min-height:100vh; display:flex; align-items:center; position:relative;
+  background:
+    radial-gradient(ellipse 900px 600px at 78% 30%, rgba(169,113,63,.22), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 10% 85%, rgba(107,66,38,.25), transparent 60%),
+    linear-gradient(180deg, var(--espresso), var(--dark-roast));
+  overflow:hidden;
+}
+.hero-grid{
+  display:grid; grid-template-columns:1.05fr .95fr; align-items:center; gap:40px;
+  width:100%; padding-top:80px;
+}
+.beans-field{position:absolute; inset:0; z-index:0; pointer-events:none;}
+.bean{
+  position:absolute; width:16px; height:26px; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  background:linear-gradient(135deg, var(--coffee), var(--roast-brown));
+  opacity:.35; will-change:transform;
+}
+.bean::after{content:'';position:absolute; left:50%; top:8%; bottom:8%; width:1.5px; background:rgba(0,0,0,.4); transform:translateX(-50%) rotate(8deg);}
+
+.hero-eyebrow-row{display:flex; align-items:center; gap:14px; margin-bottom:26px;}
+.hero h1{
+  font-family:var(--font-display); font-weight:600; line-height:.98;
+  font-size:clamp(52px, 7vw, 104px); letter-spacing:-.01em; color:var(--foam);
+}
+.hero h1 em{
+  font-style:italic; font-weight:450; color:transparent;
+  -webkit-text-stroke:1px var(--gold); background:linear-gradient(90deg, var(--gold), var(--latte));
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+}
+.hero p.lede{
+  margin-top:26px; max-width:420px; font-size:17px; line-height:1.75; color:rgba(241,226,200,.72); font-weight:300;
+}
+.hero-actions{display:flex; align-items:center; gap:28px; margin-top:44px;}
+.btn-primary{
+  background:var(--gold); color:var(--espresso); padding:17px 34px; border-radius:100px;
+  font-size:13px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+  display:inline-flex; align-items:center; gap:12px; transition:transform .45s var(--ease), box-shadow .45s var(--ease);
+  box-shadow:0 14px 40px -14px rgba(201,143,78,.7);
+}
+.btn-primary:hover{transform:translateY(-3px); box-shadow:0 20px 50px -12px rgba(201,143,78,.9);}
+.btn-primary svg{transition:transform .4s var(--ease);}
+.btn-primary:hover svg{transform:translateX(4px);}
+.play-link{display:flex; align-items:center; gap:12px; font-size:13px; letter-spacing:.08em; color:var(--cream); opacity:.8;}
+.play-dot{width:42px;height:42px;border-radius:50%; border:1px solid var(--line); display:flex; align-items:center; justify-content:center;}
+
+.hero-stats{display:flex; gap:46px; margin-top:70px; padding-top:34px; border-top:1px solid var(--line);}
+.stat b{font-family:var(--font-display); font-size:30px; color:var(--latte); display:block; font-weight:600;}
+.stat span{font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; color:rgba(241,226,200,.55); text-transform:uppercase;}
+
+/* --- 3D CUP SIGNATURE --- */
+.cup-stage{
+  perspective:1400px; height:640px; display:flex; align-items:center; justify-content:center; position:relative;
+}
+.cup-orbit{
+  position:relative; width:340px; height:340px; transform-style:preserve-3d;
+  animation:orbitSpin 26s linear infinite;
+}
+@keyframes orbitSpin{from{transform:rotateY(0deg);}to{transform:rotateY(360deg);}}
+.orbit-bean{
+  position:absolute; top:50%; left:50%; width:20px; height:32px;
+  margin:-16px 0 0 -10px;
+  border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  background:linear-gradient(135deg, var(--latte), var(--coffee));
+  box-shadow:0 0 18px rgba(201,143,78,.4);
+}
+.orbit-bean::after{content:'';position:absolute; left:50%; top:10%; bottom:10%; width:1.5px; background:rgba(0,0,0,.35); transform:translateX(-50%);}
+.orbit-bean:nth-child(1){transform:rotateY(0deg) translateZ(170px) rotateZ(-12deg);}
+.orbit-bean:nth-child(2){transform:rotateY(60deg) translateZ(170px) rotateZ(8deg);}
+.orbit-bean:nth-child(3){transform:rotateY(120deg) translateZ(170px) rotateZ(-6deg);}
+.orbit-bean:nth-child(4){transform:rotateY(180deg) translateZ(170px) rotateZ(14deg);}
+.orbit-bean:nth-child(5){transform:rotateY(240deg) translateZ(170px) rotateZ(-9deg);}
+.orbit-bean:nth-child(6){transform:rotateY(300deg) translateZ(170px) rotateZ(5deg);}
+
+.cup3d-wrap{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  transform-style:preserve-3d; width:220px; height:260px;
+  animation:cupFloat 5s ease-in-out infinite;
+}
+@keyframes cupFloat{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-14px);}}
+#tiltCup{transform-style:preserve-3d; width:100%; height:100%; transition:transform .15s ease-out;}
+
+.saucer{
+  position:absolute; bottom:14px; left:50%; width:200px; height:26px;
+  transform:translateX(-50%) rotateX(72deg);
+  background:radial-gradient(ellipse at center, var(--foam) 0%, var(--cream) 55%, var(--latte) 100%);
+  border-radius:50%; box-shadow:0 30px 60px -10px rgba(0,0,0,.7);
+}
+.cup-body{
+  position:absolute; bottom:34px; left:50%; width:150px; height:130px; transform:translateX(-50%);
+  background:linear-gradient(100deg, #fffaf1 0%, var(--foam) 40%, var(--cream) 75%, var(--latte) 100%);
+  border-radius:8px 8px 46px 46px / 8px 8px 60px 60px;
+  box-shadow:inset -16px 0 30px -6px rgba(107,66,38,.35), 0 26px 40px -14px rgba(0,0,0,.6);
+}
+.cup-coffee{
+  position:absolute; top:0; left:8px; right:8px; height:22px; border-radius:50%;
+  background:radial-gradient(ellipse at 35% 35%, #6b4226 0%, var(--dark-roast) 70%);
+  box-shadow:inset 0 4px 10px rgba(0,0,0,.5);
+}
+.cup-handle{
+  position:absolute; bottom:56px; right:-30px; width:46px; height:60px;
+  border:12px solid var(--foam); border-left:none; border-radius:0 30px 30px 0;
+  box-shadow:4px 6px 16px -6px rgba(0,0,0,.5);
+}
+.steam{position:absolute; bottom:100%; left:50%; width:60px; transform:translateX(-50%); display:flex; gap:8px; justify-content:center;}
+.steam i{
+  display:block; width:6px; height:46px; border-radius:50%;
+  background:linear-gradient(180deg, transparent, rgba(241,226,200,.55), transparent);
+  filter:blur(2px); animation:rise 3.2s ease-in-out infinite;
+}
+.steam i:nth-child(1){animation-delay:0s;}
+.steam i:nth-child(2){height:60px; animation-delay:.7s;}
+.steam i:nth-child(3){animation-delay:1.4s;}
+@keyframes rise{
+  0%{transform:translateY(0) scaleX(1); opacity:0;}
+  20%{opacity:.8;}
+  100%{transform:translateY(-70px) scaleX(1.6); opacity:0;}
+}
+.glow-ring{
+  position:absolute; width:420px; height:420px; border-radius:50%; top:50%; left:50%;
+  transform:translate(-50%,-50%); background:radial-gradient(circle, rgba(201,143,78,.18), transparent 70%);
+  z-index:-1; animation:pulseGlow 4s ease-in-out infinite;
+}
+@keyframes pulseGlow{0%,100%{opacity:.6; transform:translate(-50%,-50%) scale(.94);}50%{opacity:1; transform:translate(-50%,-50%) scale(1.05);}}
+
+.scroll-cue{
+  position:absolute; bottom:36px; left:48px; display:flex; align-items:center; gap:12px;
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.2em; color:rgba(241,226,200,.5); text-transform:uppercase;
+}
+.scroll-line{width:1px; height:44px; background:linear-gradient(var(--gold), transparent); position:relative; overflow:hidden;}
+.scroll-line::after{content:'';position:absolute; top:-44px; left:0; width:100%; height:44px; background:var(--gold); animation:scrollDown 2.2s ease-in-out infinite;}
+@keyframes scrollDown{0%{top:-44px;}100%{top:44px;}}
+
+/* ============================= */
+/* MARQUEE TICKER                 */
+/* ============================= */
+.ticker{
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  background:var(--dark-roast); padding:20px 0; overflow:hidden; white-space:nowrap;
+}
+.ticker-track{display:inline-flex; animation:tickerScroll 32s linear infinite;}
+.ticker span{
+  font-family:var(--font-display); font-style:italic; font-weight:450; font-size:22px;
+  color:var(--cream); opacity:.55; padding:0 34px; display:inline-flex; align-items:center; gap:34px;
+}
+.ticker span::after{content:'☕'; opacity:.6; font-style:normal; font-size:16px;}
+@keyframes tickerScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ============================= */
+/* ABOUT / STORY                  */
+/* ============================= */
+.about{padding:170px 0; background:var(--espresso); position:relative;}
+.about-grid{display:grid; grid-template-columns:.85fr 1.15fr; gap:90px; align-items:center;}
+.about h2{
+  font-family:var(--font-display); font-size:clamp(38px,4vw,58px); font-weight:600; line-height:1.08; color:var(--foam);
+}
+.about h2 em{color:var(--gold); font-style:italic; font-weight:450;}
+.about p{margin-top:26px; font-size:16.5px; line-height:1.85; color:rgba(241,226,200,.65); font-weight:300; max-width:480px;}
+.about-signature{margin-top:40px; font-family:var(--font-display); font-style:italic; font-size:20px; color:var(--latte);}
+
+.bag3d-stage{perspective:1200px; display:flex; justify-content:center;}
+#tiltBag{
+  width:280px; height:360px; position:relative; transform-style:preserve-3d;
+  transition:transform .15s ease-out; animation:bagFloat 6s ease-in-out infinite;
+}
+@keyframes bagFloat{0%,100%{transform:translateY(0) rotateZ(-2deg);}50%{transform:translateY(-16px) rotateZ(2deg);}}
+.bag-body{
+  position:absolute; inset:0; border-radius:10px;
+  background:linear-gradient(160deg, var(--roast-brown) 0%, var(--dark-roast) 55%, var(--espresso) 100%);
+  box-shadow:0 50px 80px -30px rgba(0,0,0,.8), inset 0 0 0 1px rgba(241,226,200,.06);
+  transform:translateZ(0);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  padding:30px;
+}
+.bag-fold{
+  position:absolute; top:-16px; left:14px; right:14px; height:34px;
+  background:repeating-linear-gradient(90deg, var(--coffee), var(--coffee) 8px, var(--roast-brown) 8px, var(--roast-brown) 16px);
+  border-radius:6px 6px 0 0; transform:translateZ(6px) rotateX(18deg); transform-origin:bottom;
+}
+.bag-seal{width:44px;height:44px; border:1.5px solid var(--gold); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); color:var(--gold); font-size:10px; letter-spacing:.05em; text-align:center;}
+.bag-brand{font-family:var(--font-display); font-style:italic; font-size:26px; color:var(--cream);}
+.bag-sub{font-family:var(--font-mono); font-size:10px; letter-spacing:.28em; color:rgba(241,226,200,.5); text-transform:uppercase;}
+.bag-body::after{
+  content:''; position:absolute; left:8%; top:8%; width:26%; height:60%;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), transparent);
+  filter:blur(10px); border-radius:12px;
+}
+
+/* ============================= */
+/* MENU                           */
+/* ============================= */
+.menu{padding:160px 0 140px; background:linear-gradient(180deg, var(--espresso), var(--dark-roast) 40%, var(--espresso));}
+.menu-head{display:flex; justify-content:space-between; align-items:flex-end; gap:40px; margin-bottom:64px; flex-wrap:wrap;}
+.menu-head h2{font-family:var(--font-display); font-size:clamp(38px,4.4vw,60px); font-weight:600; color:var(--foam);}
+.menu-tabs{display:flex; gap:10px; flex-wrap:wrap;}
+.tab-btn{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+  padding:11px 22px; border-radius:100px; border:1px solid var(--line); color:rgba(241,226,200,.6);
+  transition:all .35s var(--ease); background:transparent;
+}
+.tab-btn:hover{border-color:var(--gold-soft); color:var(--cream);}
+.tab-btn.active{background:var(--gold); border-color:var(--gold); color:var(--espresso); font-weight:700;}
+
+.menu-grid{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:28px;
+}
+.menu-panel{display:none;}
+.menu-panel.active{display:grid; grid-template-columns:repeat(3, 1fr); gap:28px;}
+
+.food-card{
+  perspective:1000px;
+}
+.food-card-inner{
+  position:relative; padding:34px 30px 28px; border-radius:20px;
+  background:linear-gradient(155deg, rgba(62,36,23,.55), rgba(21,11,8,.75));
+  border:1px solid var(--line); overflow:hidden;
+  transform-style:preserve-3d; transition:transform .12s ease-out, border-color .4s, box-shadow .4s;
+  height:100%;
+}
+.food-card-inner:hover{border-color:var(--gold-soft); box-shadow:0 30px 60px -24px rgba(0,0,0,.7);}
+.food-card-inner::before{
+  content:''; position:absolute; top:-40%; right:-30%; width:200px; height:200px; border-radius:50%;
+  background:radial-gradient(circle, rgba(201,143,78,.16), transparent 70%);
+  opacity:0; transition:opacity .5s;
+}
+.food-card-inner:hover::before{opacity:1;}
+
+.food-icon{
+  width:64px; height:64px; border-radius:50%; margin-bottom:22px;
+  background:linear-gradient(145deg, var(--coffee), var(--dark-roast));
+  display:flex; align-items:center; justify-content:center; font-size:26px;
+  box-shadow:inset 0 2px 6px rgba(255,255,255,.08), 0 14px 26px -12px rgba(0,0,0,.7);
+  transform:translateZ(30px);
+}
+.food-top-row{display:flex; justify-content:space-between; align-items:flex-start; gap:14px; transform:translateZ(20px);}
+.food-name{font-family:var(--font-display); font-size:21px; font-weight:600; color:var(--foam); line-height:1.3;}
+.food-tag{
+  font-family:var(--font-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--gold); border:1px solid var(--gold-soft); padding:4px 9px; border-radius:100px; white-space:nowrap; margin-top:4px;
+}
+.food-desc{margin-top:12px; font-size:14px; line-height:1.7; color:rgba(241,226,200,.55); font-weight:300; transform:translateZ(20px); min-height:66px;}
+.food-bottom{display:flex; justify-content:space-between; align-items:center; margin-top:24px; padding-top:20px; border-top:1px dashed var(--line); transform:translateZ(20px);}
+.food-price{font-family:var(--font-mono); font-size:19px; color:var(--latte); font-weight:700;}
+.food-add{
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--gold); color:var(--gold);
+  display:flex; align-items:center; justify-content:center; font-size:16px; transition:all .35s var(--ease);
+}
+.food-add:hover{background:var(--gold); color:var(--espresso); transform:rotate(90deg);}
+
+/* ============================= */
+/* PROCESS                        */
+/* ============================= */
+.process{padding:150px 0; background:var(--dark-roast); position:relative; overflow:hidden;}
+.process-head{max-width:560px; margin-bottom:80px;}
+.process-head h2{font-family:var(--font-display); font-size:clamp(36px,4vw,54px); color:var(--foam); font-weight:600;}
+.process-steps{display:grid; grid-template-columns:repeat(4,1fr); gap:2px; background:var(--line); border-radius:20px; overflow:hidden;}
+.step{background:var(--dark-roast); padding:44px 30px; position:relative; transition:background .4s;}
+.step:hover{background:rgba(62,36,23,.5);}
+.step-num{font-family:var(--font-mono); font-size:13px; color:var(--gold); letter-spacing:.1em;}
+.step h3{font-family:var(--font-display); font-size:24px; margin-top:18px; color:var(--foam); font-weight:600;}
+.step p{margin-top:12px; font-size:14px; line-height:1.7; color:rgba(241,226,200,.55); font-weight:300;}
+
+/* ============================= */
+/* TESTIMONIALS                   */
+/* ============================= */
+.testimonials{padding:150px 0; background:var(--espresso);}
+.t-head{text-align:center; margin-bottom:70px;}
+.t-head h2{font-family:var(--font-display); font-size:clamp(36px,4vw,54px); color:var(--foam); font-weight:600;}
+.t-track{display:flex; gap:26px; overflow-x:auto; padding-bottom:20px; scroll-snap-type:x mandatory;}
+.t-track::-webkit-scrollbar{height:4px;}
+.t-track::-webkit-scrollbar-thumb{background:var(--gold-soft); border-radius:10px;}
+.t-card{
+  min-width:380px; scroll-snap-align:start; padding:38px; border-radius:20px;
+  background:linear-gradient(155deg, rgba(62,36,23,.4), rgba(21,11,8,.6)); border:1px solid var(--line);
+}
+.t-stars{color:var(--gold); font-size:14px; letter-spacing:3px; margin-bottom:20px;}
+.t-quote{font-family:var(--font-display); font-style:italic; font-size:19px; line-height:1.6; color:var(--foam); font-weight:450;}
+.t-person{display:flex; align-items:center; gap:14px; margin-top:26px;}
+.t-avatar{width:42px;height:42px;border-radius:50%; background:linear-gradient(145deg,var(--coffee),var(--roast-brown)); display:flex;align-items:center;justify-content:center; font-family:var(--font-display); font-style:italic; color:var(--latte);}
+.t-name{font-size:14px; font-weight:500; color:var(--cream);}
+.t-role{font-family:var(--font-mono); font-size:10.5px; color:rgba(241,226,200,.45); letter-spacing:.08em; text-transform:uppercase;}
+
+/* ============================= */
+/* CTA VISIT                      */
+/* ============================= */
+.visit{
+  padding:150px 0; text-align:center; position:relative;
+  background:radial-gradient(ellipse 900px 500px at 50% 0%, rgba(201,143,78,.14), transparent 65%), var(--dark-roast);
+}
+.visit h2{font-family:var(--font-display); font-size:clamp(42px,6vw,84px); font-weight:600; color:var(--foam); line-height:1.05;}
+.visit h2 em{color:var(--gold); font-style:italic; font-weight:450;}
+.visit p{margin-top:22px; color:rgba(241,226,200,.6); font-size:16px; max-width:440px; margin-left:auto; margin-right:auto;}
+.visit .btn-primary{margin-top:44px;}
+
+/* ============================= */
+/* FOOTER                         */
+/* ============================= */
+footer{background:var(--espresso); border-top:1px solid var(--line); padding:90px 0 34px;}
+.footer-grid{display:grid; grid-template-columns:1.4fr 1fr 1fr 1.2fr; gap:60px;}
+.footer-brand .logo{margin-bottom:18px;}
+.footer-brand p{font-size:14px; color:rgba(241,226,200,.5); line-height:1.7; max-width:280px; font-weight:300;}
+.footer-col h4{font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--gold); margin-bottom:20px;}
+.footer-col a, .footer-col p{display:block; font-size:14.5px; color:rgba(241,226,200,.65); margin-bottom:12px; font-weight:300; transition:color .3s;}
+.footer-col a:hover{color:var(--gold);}
+.newsletter{display:flex; margin-top:8px; border-bottom:1px solid var(--line); padding-bottom:10px;}
+.newsletter input{background:none; border:none; outline:none; color:var(--cream); font-size:14px; width:100%; font-family:var(--font-body);}
+.newsletter input::placeholder{color:rgba(241,226,200,.35);}
+.newsletter button{background:none; border:none; color:var(--gold); font-size:18px; cursor:pointer;}
+.footer-bottom{
+  margin-top:80px; padding-top:26px; border-top:1px solid var(--line);
+  display:flex; justify-content:space-between; font-size:12.5px; color:rgba(241,226,200,.4); flex-wrap:wrap; gap:10px;
+}
+
+/* ============================= */
+/* RESPONSIVE                     */
+/* ============================= */
+@media(max-width:1100px){
+  .hero-grid{grid-template-columns:1fr; text-align:left;}
+  .cup-stage{height:420px; order:-1;}
+  .about-grid{grid-template-columns:1fr; gap:60px;}
+  .menu-grid, .menu-panel.active{grid-template-columns:repeat(2,1fr);}
+  .process-steps{grid-template-columns:repeat(2,1fr);}
+  .footer-grid{grid-template-columns:1fr 1fr; gap:40px;}
+}
+@media(max-width:720px){
+  .wrap{padding:0 24px;}
+  header{padding:20px 24px;}
+  nav ul, .nav-cta{display:none;}
+  .hero-stats{gap:28px; flex-wrap:wrap;}
+  .menu-grid, .menu-panel.active{grid-template-columns:1fr;}
+  .process-steps{grid-template-columns:1fr;}
+  .footer-grid{grid-template-columns:1fr; gap:36px;}
+  .menu-head{align-items:flex-start;}
+}
+
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<div id="preloader">
+  <div class="pre-cup"></div>
+  <div class="pre-label">Brewing Ember &amp; Oak</div>
+</div>
+
+<header id="header">
+  <div class="logo"><span class="logo-mark">E&amp;O</span> Ember &amp; Oak</div>
+  <nav>
+    <ul>
+      <li><a href="#about">Story</a></li>
+      <li><a href="#menu">Menu</a></li>
+      <li><a href="#process">Process</a></li>
+      <li><a href="#visit">Visit</a></li>
+    </ul>
+  </nav>
+  <a href="#menu" class="nav-cta">Order Now</a>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="beans-field" id="beansField"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <div class="hero-eyebrow-row">
+        <span class="eyebrow">Small Batch · Single Origin</span>
+      </div>
+      <h1>Slow roasted,<br><em>poured</em> with soul.</h1>
+      <p class="lede">Ember &amp; Oak is a specialty coffee house built around one idea: every cup deserves the same craft as a fine meal. Wood-fired roasts, honest ingredients, unhurried mornings.</p>
+      <div class="hero-actions">
+        <a href="#menu" class="btn-primary">
+          View Menu
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M1 6H15M15 6L10 1M15 6L10 11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </a>
+        <a href="#about" class="play-link">
+          <span class="play-dot">▸</span> Our Story
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><b>18</b><span>Years Roasting</span></div>
+        <div class="stat"><b>12</b><span>Origin Farms</span></div>
+        <div class="stat"><b>4.9</b><span>Guest Rating</span></div>
+      </div>
+    </div>
+
+    <div class="cup-stage">
+      <div class="glow-ring"></div>
+      <div class="cup-orbit">
+        <div class="orbit-bean"></div><div class="orbit-bean"></div><div class="orbit-bean"></div>
+        <div class="orbit-bean"></div><div class="orbit-bean"></div><div class="orbit-bean"></div>
+      </div>
+      <div class="cup3d-wrap">
+        <div id="tiltCup">
+          <div class="steam"><i></i><i></i><i></i></div>
+          <div class="cup-handle"></div>
+          <div class="cup-body"><div class="cup-coffee"></div></div>
+          <div class="saucer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-cue"><span class="scroll-line"></span> Scroll</div>
+</section>
+
+<div class="ticker">
+  <div class="ticker-track" id="tickerTrack">
+    <span>Specialty Roasted</span><span>Single Origin</span><span>Slow Brewed</span><span>Wood Fired</span>
+    <span>Sustainably Sourced</span><span>Small Batch</span>
+    <span>Specialty Roasted</span><span>Single Origin</span><span>Slow Brewed</span><span>Wood Fired</span>
+    <span>Sustainably Sourced</span><span>Small Batch</span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section class="about" id="about">
+  <div class="wrap about-grid">
+    <div class="bag3d-stage">
+      <div id="tiltBag">
+        <div class="bag-body">
+          <div class="bag-fold"></div>
+          <div class="bag-brand">E&amp;O</div>
+          <div class="bag-sub">Dark Roast Reserve</div>
+          <div class="bag-seal">SINGLE<br>ORIGIN</div>
+        </div>
+      </div>
+    </div>
+    <div class="reveal">
+      <span class="eyebrow">Since 2007</span>
+      <h2>Built on fire,<br>finished with <em>care</em>.</h2>
+      <p>What started as a single wood-fired roaster in a converted garage is now a neighbourhood ritual. We travel to the farms we buy from, roast in batches small enough to taste the difference, and treat every pour-over like it's the only one we'll make that day.</p>
+      <p>No shortcuts, no syrups pretending to be flavour — just honest beans, honest heat, and people who care where their morning comes from.</p>
+      <div class="about-signature">— The Ember &amp; Oak Roasting Team</div>
+    </div>
+  </div>
+</section>
+
+<!-- MENU -->
+<section class="menu" id="menu">
+  <div class="wrap">
+    <div class="menu-head reveal">
+      <div>
+        <span class="eyebrow">The Menu</span>
+        <h2>Crafted daily,<br>priced honestly.</h2>
+      </div>
+      <div class="menu-tabs" id="menuTabs">
+        <button class="tab-btn active" data-tab="coffee">Coffee</button>
+        <button class="tab-btn" data-tab="pastries">Pastries</button>
+        <button class="tab-btn" data-tab="mains">Mains</button>
+        <button class="tab-btn" data-tab="desserts">Desserts</button>
+      </div>
+    </div>
+
+    <div class="menu-panel active" data-panel="coffee">
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">☕</div>
+          <div class="food-top-row"><div class="food-name">Espresso Romano</div><div class="food-tag">Classic</div></div>
+          <div class="food-desc">Double shot, citrus twist, served with sparkling water on the side.</div>
+          <div class="food-bottom"><div class="food-price">$4.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🥛</div>
+          <div class="food-top-row"><div class="food-name">Cappuccino Dorato</div><div class="food-tag">Bestseller</div></div>
+          <div class="food-desc">Velvet microfoam over double espresso, dusted with toasted cocoa.</div>
+          <div class="food-bottom"><div class="food-price">$5.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🤍</div>
+          <div class="food-top-row"><div class="food-name">Flat White</div><div class="food-tag">Silky</div></div>
+          <div class="food-desc">Ristretto pulled tight, whole milk steamed to a glassy micro-foam.</div>
+          <div class="food-bottom"><div class="food-price">$5.75</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍯</div>
+          <div class="food-top-row"><div class="food-name">Caramel Cortado</div><div class="food-tag">Sweet</div></div>
+          <div class="food-desc">Equal parts espresso and steamed milk, house caramel, sea salt.</div>
+          <div class="food-bottom"><div class="food-price">$6.00</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🧊</div>
+          <div class="food-top-row"><div class="food-name">Cold Brew Oak Barrel</div><div class="food-tag">18hr Steep</div></div>
+          <div class="food-desc">Steeped low and slow, finished in charred oak for a smoky edge.</div>
+          <div class="food-bottom"><div class="food-price">$6.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🌰</div>
+          <div class="food-top-row"><div class="food-name">Mocha Nocciola</div><div class="food-tag">Rich</div></div>
+          <div class="food-desc">Dark chocolate, hazelnut praline, espresso, whipped cream.</div>
+          <div class="food-bottom"><div class="food-price">$6.75</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu-panel" data-panel="pastries">
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🥐</div>
+          <div class="food-top-row"><div class="food-name">Butter Croissant</div><div class="food-tag">French</div></div>
+          <div class="food-desc">72-hour laminated dough, baked to order every morning.</div>
+          <div class="food-bottom"><div class="food-price">$4.00</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🌾</div>
+          <div class="food-top-row"><div class="food-name">Almond Pain Suisse</div><div class="food-tag">Nutty</div></div>
+          <div class="food-desc">Filled with almond cream, topped with toasted flaked almonds.</div>
+          <div class="food-bottom"><div class="food-price">$5.25</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍂</div>
+          <div class="food-top-row"><div class="food-name">Cinnamon Rye Roll</div><div class="food-tag">Warm Spice</div></div>
+          <div class="food-desc">Dark rye laminated dough, brown butter cinnamon, light glaze.</div>
+          <div class="food-bottom"><div class="food-price">$4.75</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍫</div>
+          <div class="food-top-row"><div class="food-name">Dark Chocolate Babka</div><div class="food-tag">Decadent</div></div>
+          <div class="food-desc">Braided brioche, dark chocolate ganache, sea salt flake finish.</div>
+          <div class="food-bottom"><div class="food-price">$5.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu-panel" data-panel="mains">
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🥑</div>
+          <div class="food-top-row"><div class="food-name">Avocado Sourdough</div><div class="food-tag">Vegan</div></div>
+          <div class="food-desc">Smashed avocado, chili oil, radish, lemon, house sourdough.</div>
+          <div class="food-bottom"><div class="food-price">$12.00</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍳</div>
+          <div class="food-top-row"><div class="food-name">Truffle Egg Toast</div><div class="food-tag">Signature</div></div>
+          <div class="food-desc">Soft scrambled eggs, black truffle butter, chive, grilled levain.</div>
+          <div class="food-bottom"><div class="food-price">$13.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🐟</div>
+          <div class="food-top-row"><div class="food-name">Smoked Salmon Bagel</div><div class="food-tag">Classic</div></div>
+          <div class="food-desc">House-cured salmon, whipped labneh, capers, everything seasoning.</div>
+          <div class="food-bottom"><div class="food-price">$14.00</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍄</div>
+          <div class="food-top-row"><div class="food-name">Wild Mushroom Tartine</div><div class="food-tag">Vegetarian</div></div>
+          <div class="food-desc">Roasted wild mushrooms, whipped ricotta, thyme, toasted rye.</div>
+          <div class="food-bottom"><div class="food-price">$12.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="menu-panel" data-panel="desserts">
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍰</div>
+          <div class="food-top-row"><div class="food-name">Tiramisu Classico</div><div class="food-tag">Bestseller</div></div>
+          <div class="food-desc">Espresso-soaked ladyfingers, mascarpone, cocoa dust, house rule.</div>
+          <div class="food-bottom"><div class="food-price">$8.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🔥</div>
+          <div class="food-top-row"><div class="food-name">Basque Burnt Cheesecake</div><div class="food-tag">Signature</div></div>
+          <div class="food-desc">Caramelised top, molten centre, no crust, just cream and fire.</div>
+          <div class="food-bottom"><div class="food-price">$7.75</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🌰</div>
+          <div class="food-top-row"><div class="food-name">Hazelnut Praline Tart</div><div class="food-tag">Nutty</div></div>
+          <div class="food-desc">Shortcrust base, hazelnut frangipane, dark chocolate glaze.</div>
+          <div class="food-bottom"><div class="food-price">$8.00</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+      <div class="food-card reveal">
+        <div class="food-card-inner">
+          <div class="food-icon">🍨</div>
+          <div class="food-top-row"><div class="food-name">Affogato al Caffè</div><div class="food-tag">Warm + Cold</div></div>
+          <div class="food-desc">Vanilla bean gelato, drowned in a hot double shot of espresso.</div>
+          <div class="food-bottom"><div class="food-price">$6.50</div><div class="food-add">+</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROCESS -->
+<section class="process" id="process">
+  <div class="wrap">
+    <div class="process-head reveal">
+      <span class="eyebrow">From Farm to Cup</span>
+      <h2>Four steps we never rush.</h2>
+    </div>
+    <div class="process-steps">
+      <div class="step reveal"><div class="step-num">01</div><h3>Origin</h3><p>Sourced directly from single-origin farms across Ethiopia, Colombia and Sumatra.</p></div>
+      <div class="step reveal"><div class="step-num">02</div><h3>Roast</h3><p>Slow roasted in small batches over an open-flame drum for depth, not bitterness.</p></div>
+      <div class="step reveal"><div class="step-num">03</div><h3>Grind</h3><p>Ground fresh to order, calibrated to the exact brew method you choose.</p></div>
+      <div class="step reveal"><div class="step-num">04</div><h3>Brew</h3><p>Extracted with precision and poured with the same intention every single time.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials">
+  <div class="wrap">
+    <div class="t-head reveal">
+      <span class="eyebrow">Guest Notes</span>
+      <h2>Loved by regulars.</h2>
+    </div>
+    <div class="t-track">
+      <div class="t-card reveal"><div class="t-stars">★★★★★</div><div class="t-quote">The cold brew genuinely tastes like nothing else in the city — smoky, smooth, never bitter.</div><div class="t-person"><div class="t-avatar">R</div><div><div class="t-name">Rhea M.</div><div class="t-role">Regular, 3 years</div></div></div></div>
+      <div class="t-card reveal"><div class="t-stars">★★★★★</div><div class="t-quote">Every pastry is baked that morning. You can taste the difference the second you bite in.</div><div class="t-person"><div class="t-avatar">D</div><div><div class="t-name">Dev K.</div><div class="t-role">Weekend regular</div></div></div></div>
+      <div class="t-card reveal"><div class="t-stars">★★★★★</div><div class="t-quote">The truffle egg toast alone is worth the trip. This is the most premium café in town.</div><div class="t-person"><div class="t-avatar">S</div><div><div class="t-name">Sara L.</div><div class="t-role">First-time visitor</div></div></div></div>
+      <div class="t-card reveal"><div class="t-stars">★★★★★</div><div class="t-quote">Staff know my order before I say a word. That's the kind of place this is.</div><div class="t-person"><div class="t-avatar">A</div><div><div class="t-name">Aman P.</div><div class="t-role">Regular, 5 years</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- VISIT CTA -->
+<section class="visit" id="visit">
+  <div class="wrap">
+    <h2 class="reveal">Come sit with us,<br>the <em>coffee's</em> ready.</h2>
+    <p class="reveal">14 Roaster's Lane, Jaipur · Open daily, 7am – 8pm</p>
+    <a href="#" class="btn-primary reveal">Reserve a Table
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M1 6H15M15 6L10 1M15 6L10 11" stroke="currentColor" stroke-width="1.5"/></svg>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo"><span class="logo-mark">E&amp;O</span> Ember &amp; Oak</div>
+        <p>A specialty coffee house built on slow roasting, honest sourcing and unhurried mornings.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Visit</h4>
+        <p>14 Roaster's Lane</p>
+        <p>Jaipur, Rajasthan</p>
+        <p>Open 7am – 8pm</p>
+      </div>
+      <div class="footer-col">
+        <h4>Explore</h4>
+        <a href="#about">Our Story</a>
+        <a href="#menu">Menu</a>
+        <a href="#process">Process</a>
+      </div>
+      <div class="footer-col">
+        <h4>Stay in the loop</h4>
+        <p>New roasts, seasonal menus, first look.</p>
+        <div class="newsletter">
+          <input type="email" placeholder="Your email">
+          <button>→</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Ember &amp; Oak Coffee House. All rights reserved.</span>
+      <span>Crafted with care, brewed with intent.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---------- Preloader ---------- */
+window.addEventListener('load', () => {
+  setTimeout(() => document.getElementById('preloader').classList.add('done'), 700);
+});
+
+/* ---------- Custom cursor ---------- */
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx=0,my=0, rx=0, ry=0;
+window.addEventListener('mousemove', e=>{
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx+'px'; cursor.style.top = my+'px';
+});
+function ringLoop(){
+  rx += (mx-rx)*0.18; ry += (my-ry)*0.18;
+  ring.style.left = rx+'px'; ring.style.top = ry+'px';
+  requestAnimationFrame(ringLoop);
+}
+ringLoop();
+document.querySelectorAll('a, button, .food-card-inner, .tab-btn').forEach(el=>{
+  el.addEventListener('mouseenter', ()=>ring.classList.add('grow'));
+  el.addEventListener('mouseleave', ()=>ring.classList.remove('grow'));
+});
+
+/* ---------- Header on scroll ---------- */
+const header = document.getElementById('header');
+window.addEventListener('scroll', ()=>{
+  header.classList.toggle('scrolled', window.scrollY > 40);
+});
+
+/* ---------- Scroll reveal ---------- */
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+  });
+},{threshold:0.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ---------- Floating coffee beans in hero ---------- */
+const beansField = document.getElementById('beansField');
+const beanCount = 18;
+for(let i=0;i<beanCount;i++){
+  const b = document.createElement('div');
+  b.className='bean';
+  const size = 10 + Math.random()*14;
+  b.style.width = size+'px';
+  b.style.height = (size*1.6)+'px';
+  b.style.left = Math.random()*100+'%';
+  b.style.top = Math.random()*100+'%';
+  b.style.transform = `rotate(${Math.random()*360}deg)`;
+  b.dataset.speed = (0.2 + Math.random()*0.6).toFixed(2);
+  b.dataset.depth = (Math.random()*40+10).toFixed(0);
+  beansField.appendChild(b);
+}
+const beans = document.querySelectorAll('.bean');
+document.querySelector('.hero').addEventListener('mousemove', (e)=>{
+  const {clientX, clientY, currentTarget} = e;
+  const {width, height} = currentTarget.getBoundingClientRect();
+  const px = (clientX/width - 0.5);
+  const py = (clientY/height - 0.5);
+  beans.forEach(b=>{
+    const depth = b.dataset.depth;
+    b.style.transform += '';
+    b.style.translate = `${px*depth}px ${py*depth}px`;
+  });
+});
+let scrollT=0;
+window.addEventListener('scroll', ()=>{ scrollT = window.scrollY; });
+(function beanDrift(){
+  beans.forEach(b=>{
+    const sp = parseFloat(b.dataset.speed);
+    b.style.marginTop = (Math.sin((Date.now()/1800)*sp)*10)+'px';
+  });
+  requestAnimationFrame(beanDrift);
+})();
+
+/* ---------- 3D tilt cup ---------- */
+const cupStage = document.querySelector('.cup-stage');
+const tiltCup = document.getElementById('tiltCup');
+if(cupStage && tiltCup){
+  cupStage.addEventListener('mousemove', (e)=>{
+    const r = cupStage.getBoundingClientRect();
+    const px = (e.clientX - r.left)/r.width - 0.5;
+    const py = (e.clientY - r.top)/r.height - 0.5;
+    tiltCup.style.transform = `rotateY(${px*40}deg) rotateX(${-py*30}deg)`;
+  });
+  cupStage.addEventListener('mouseleave', ()=>{ tiltCup.style.transform = 'rotateY(0) rotateX(0)'; });
+}
+
+/* ---------- 3D tilt coffee bag ---------- */
+const bagStage = document.querySelector('.bag3d-stage');
+const tiltBag = document.getElementById('tiltBag');
+if(bagStage && tiltBag){
+  bagStage.addEventListener('mousemove', (e)=>{
+    const r = bagStage.getBoundingClientRect();
+    const px = (e.clientX - r.left)/r.width - 0.5;
+    const py = (e.clientY - r.top)/r.height - 0.5;
+    tiltBag.style.transform = `rotateY(${px*36}deg) rotateX(${-py*22}deg)`;
+  });
+  bagStage.addEventListener('mouseleave', ()=>{ tiltBag.style.transform = ''; });
+}
+
+/* ---------- 3D tilt on menu cards ---------- */
+document.querySelectorAll('.food-card').forEach(card=>{
+  const inner = card.querySelector('.food-card-inner');
+  card.addEventListener('mousemove', (e)=>{
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left)/r.width - 0.5;
+    const py = (e.clientY - r.top)/r.height - 0.5;
+    inner.style.transform = `rotateY(${px*14}deg) rotateX(${-py*14}deg) translateY(-6px)`;
+  });
+  card.addEventListener('mouseleave', ()=>{ inner.style.transform=''; });
+});
+
+/* ---------- Menu tabs ---------- */
+const tabs = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.menu-panel');
+tabs.forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.tab;
+    panels.forEach(p=>{
+      p.classList.toggle('active', p.dataset.panel === target);
+    });
+    // re-observe reveal items in the freshly shown panel
+    document.querySelectorAll(`.menu-panel[data-panel="${target}"] .reveal`).forEach(el=>{
+      el.classList.add('in');
+    });
+  });
+});
+
+/* ---------- Smooth anchor scroll offset ---------- */
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click', function(e){
+    const id = this.getAttribute('href');
+    if(id.length>1){
+      const target = document.querySelector(id);
+      if(target){
+        e.preventDefault();
+        window.scrollTo({top: target.offsetTop - 80, behavior:'smooth'});
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>
